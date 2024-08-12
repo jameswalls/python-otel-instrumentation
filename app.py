@@ -1,24 +1,22 @@
-import logging
 from random import randint
 
-from flask import Flask, request
+from flask import Flask
+from opentelemetry import trace
+
+# aquire a tracer
+tracer = trace.get_tracer("diceroller.tracer")
 
 app = Flask(__name__)
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
-
-
-def roll():
-    return randint(1, 6)
 
 
 @app.route("/rolldice")
 def roll_dice():
-    player = request.args.get("player", default=None, type=str)
-    result = str(roll())
-    if player:
-        logger.warning(f"{player} is rolling the dice: {result}")
-    else:
-        logger.warning(f"anonymous player is rolling the dice: {result}")
+    return str(roll())
 
-    return result
+
+def roll():
+    # this creates a new span that's the child of the current one
+    with tracer.start_as_current_span("roll") as rollspan:
+        result = randint(1, 6)
+        rollspan.set_attribute("roll.value", result)
+        return result
